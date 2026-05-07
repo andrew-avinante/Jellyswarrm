@@ -697,12 +697,23 @@ mod tests {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
         MIGRATOR.run(&pool).await.unwrap();
 
+        let server_storage = Arc::new(ServerStorageService::new(pool.clone()));
+        let user_authorization = Arc::new(UserAuthorizationService::new(pool.clone()));
+        let media_storage = Arc::new(MediaStorageService::new(pool.clone()));
+        let unified_library = Arc::new(crate::unified_library_service::UnifiedLibraryService::new(
+            pool.clone(),
+            server_storage.clone(),
+            user_authorization.clone(),
+            media_storage.clone(),
+            reqwest::Client::new(),
+        ));
         let data_context = DataContext {
-            user_authorization: Arc::new(UserAuthorizationService::new(pool.clone())),
-            server_storage: Arc::new(ServerStorageService::new(pool.clone())),
-            media_storage: Arc::new(MediaStorageService::new(pool)),
+            user_authorization,
+            server_storage,
+            media_storage,
             play_sessions: Arc::new(SessionStorage::new()),
             config: Arc::new(tokio::sync::RwLock::new(AppConfig::default())),
+            unified_library,
         };
 
         let processors = JsonProcessors {
